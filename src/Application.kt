@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategy
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.ktor.application.*
 import io.ktor.features.*
+import io.ktor.http.*
 import io.ktor.response.*
 import io.ktor.request.*
 import io.ktor.routing.*
 import io.ktor.jackson.*
 import java.math.BigInteger
 import java.security.MessageDigest
+import java.util.*
 
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
@@ -25,7 +27,9 @@ data class Request(val url: String) {
     fun toResponse(): Response = Response(url, url.encodeToID())
 }
 
-data class Response(val originalURL: String, private val id: String) {
+data class Stat(val clicksOverTime: MutableList<Date> = mutableListOf())
+
+data class Response(val originalURL: String, private val id: String, val stat: Stat = Stat()) {
     val shortURL: String = "http://localhost:8080/$id"
 }
 
@@ -35,6 +39,7 @@ fun Application.module(testing: Boolean = false) {
         jackson {
             enable(SerializationFeature.INDENT_OUTPUT)
             propertyNamingStrategy = PropertyNamingStrategy.SNAKE_CASE
+            disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
         }
     }
 
@@ -62,8 +67,20 @@ fun Application.module(testing: Boolean = false) {
                 return@get call.respondRedirect("http://www.google.com")
             }
 
+            retrievedResponse.stat.clicksOverTime.add(Date())
+
             log.debug("redirect to: $retrievedResponse")
             call.respondRedirect(retrievedResponse.originalURL)
+        }
+
+        get("/api/v1/url/{id}/stat") {
+            val id = call.parameters["id"]
+            val retrievedResponse = id?.let {responseByID[it]}
+
+            if (id.isNullOrBlank() || retrievedResponse == null) {
+                return@get call.respond(HttpStatusCode.NoContent)
+            }
+            call.respond(retrievedResponse.stat)
         }
 
         post("/api/v1/encode") {
