@@ -1,4 +1,4 @@
-package com.example
+package com.qovery.oss
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategy
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -50,7 +50,7 @@ fun Application.module(testing: Boolean = false) {
         val id = url.encodeToID()
 
         val retrievedResponse = responseByID[id]
-        if (retrievedResponse?.originalURL != url) {
+        if (retrievedResponse != null && retrievedResponse.originalURL != url) {
             // collision spotted !
             return getShortURL(url, truncateLength +1)
         }
@@ -102,6 +102,10 @@ fun Application.module(testing: Boolean = false) {
             // Serialize Response object to JSON body
             call.respond(response)
 
+        }
+
+        get("/") {
+            call.respondText("Hello, world!")
         }
     }
 }
