@@ -1,0 +1,15 @@
+---
+application:
+  name: "urlshortener"
+  project: "url-shortener"
+  organization: "QoveryCommunity"
+databases:
+- type: "POSTGRESQL"
+  name: "url-shortener-hm"
+  version: "11"
+routers:
+- name: "main-urlshortener"
+  routes:
+  - application_name: "urlshortener"
+    paths:
+    - "/*"
