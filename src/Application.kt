@@ -36,7 +36,7 @@ data class Request(val url: String) {
 
 data class Stat(val clicksOverTime: MutableList<Date> = mutableListOf())
 
-data class Response(val originalURL: String, val id: String, val stat: Stat = Stat()) {
+data class Response(val originalURL: String, private val id: String, val stat: Stat = Stat()) {
     val shortURL: String = "http://localhost:8080/$id"
 }
 
@@ -103,12 +103,12 @@ fun Application.module(testing: Boolean = false) {
 //    }
 
     fun getShortURL(url: String, truncateLength: Int = 6): String {
-        val id = url.encodeToID()
+        val id = url.encodeToID(truncateLength)
 
         val retrievedResponse = responseById[id]
         if (retrievedResponse != null && retrievedResponse.originalURL != url) {
             // collision spotted !
-            return getShortURL(url, truncateLength +1)
+            return getShortURL(url, truncateLength + 1)
         }
         return id
     }
@@ -117,12 +117,12 @@ fun Application.module(testing: Boolean = false) {
 
         get("/{id}") {
             val id = call.parameters["id"]
-            val retrievedResponse = id?.let {responseById[it]}
+            val retrievedResponse = id?.let { responseById[it] }
 
             if (id.isNullOrBlank() || retrievedResponse == null) {
-                return@get call.respondRedirect("http://www.google.com")
+                return@get call.respondRedirect("http://www.duckduckgo.com")
             }
-
+            log.debug("retrievedResponse: $retrievedResponse")
             retrievedResponse.stat.clicksOverTime.add(Date())
 
             // add current date to the current response stats
@@ -133,13 +133,13 @@ fun Application.module(testing: Boolean = false) {
 //                }
 //            }
 
-            log.debug("redirect to: $retrievedResponse")
+            log.debug("redirect to: ${retrievedResponse.originalURL}")
             call.respondRedirect(retrievedResponse.originalURL)
         }
 
         get("/api/v1/url/{id}/stat") {
             val id = call.parameters["id"]
-            val retrievedResponse = id?.let {responseById[it]}
+            val retrievedResponse = id?.let { responseById[it] }
 
             if (id.isNullOrBlank() || retrievedResponse == null) {
                 return@get call.respond(HttpStatusCode.NoContent)
