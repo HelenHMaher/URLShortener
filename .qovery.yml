@@ -1,12 +1,11 @@
+---
 application:
-  name: "URLShortener"
-databases:
-- type: "POSTGRESQL"
-  name: "URLShortener-hm"
-  version: "11"
+  name: "urlshortener"
+  project: "URLShortener"
+  organization: "QoveryCommunity"
 routers:
-- name: "main-URLShortener"
+- name: "main-urlshortener"
   routes:
-  - application_name: "URLShortener"
+  - application_name: "urlshortener"
     paths:
     - "/*"
