@@ -8,7 +8,7 @@ RUN chown -R $APPLICATION_USER /app
 
 USER $APPLICATION_USER
 
-COPY ./build/libs/ktor-url-shortener.jar /app/ktor-url-shortener.jar
+COPY ./build/libs/URLShortener.jar /app/URLShortener.jar
 WORKDIR /app
 
 EXPOSE 8080
