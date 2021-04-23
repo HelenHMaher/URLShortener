@@ -1,5 +1,5 @@
 application:
-  name: URLShortener
+  name: api
   project: URLShortener
   publicly_accessible: true
 databases:
