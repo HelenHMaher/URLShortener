@@ -16,6 +16,8 @@ import org.jetbrains.exposed.sql.`java-time`.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.math.BigInteger
 import java.security.MessageDigest
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.*
 
 
@@ -34,7 +36,7 @@ data class Request(val url: String) {
 
 data class Stat(val clicksOverTime: MutableList<Date> = mutableListOf())
 
-data class Response(val originalURL: String, private val id: String, val stat: Stat = Stat()) {
+data class Response(val originalURL: String, val id: String, val stat: Stat = Stat()) {
     val shortURL: String = "${System.getenv("QOVERY_APPLICATION_API_HOST")}/$id"
 }
 
@@ -53,9 +55,9 @@ object ClickOverTimeTable : Table("click_over_time") {
 
 fun initDatabase() {
     val config = HikariConfig().apply {
-//        jbdcUrl = "jbdc:postgresql://127.0.0.1:5432/exposed"
-        username = "exposed"
-        password = "exposed"
+        jdbcUrl = "jdbc:${System.getenv("QOVERY_DATABASE_MY_PQL_DB_CONNECTION_URI_WITHOUT_CREDENTIALS")}"
+        username = System.getenv("QOVERY_DATABASE_MY_PQL_DB_USERNAME")
+        password = System.getenv("QOVERY_DATABASE_MY_PQL_DB_PASSWORD")
         driverClassName = "org.postgresql.Driver"
     }
 
@@ -79,13 +81,29 @@ fun Application.module(testing: Boolean = false) {
         }
     }
 
-    // Hash table Response object by ID
-    val responseByID = mutableMapOf<String, Response>()
+    fun getResponseById(id: String): Response? {
+        return transaction {
+            ResponseTable.select {ResponseTable.id eq id}
+                .limit(1)
+                .map {
+                    Response(originalURL = it[ResponseTable.originalURL], id = it[ResponseTable.id])
+                }
+        }.firstOrNull()
+    }
+
+    fun persistResponse(response: Response) {
+        transaction {
+            ResponseTable.insert {
+                it[originalURL] = response.originalURL
+                it[id] = response.id
+            }
+        }
+    }
 
     fun getShortURL(url: String, truncateLength: Int = 6): String {
         val id = url.encodeToID()
 
-        val retrievedResponse = responseByID[id]
+        val retrievedResponse = getResponseById(id)
         if (retrievedResponse != null && retrievedResponse.originalURL != url) {
             // collision spotted !
             return getShortURL(url, truncateLength +1)
@@ -97,13 +115,19 @@ fun Application.module(testing: Boolean = false) {
 
         get("/{id}") {
             val id = call.parameters["id"]
-            val retrievedResponse = id?.let {responseByID[it]}
+            val retrievedResponse = id?.let {getResponseById(it)}
 
             if (id.isNullOrBlank() || retrievedResponse == null) {
                 return@get call.respondRedirect("http://www.google.com")
             }
 
-            retrievedResponse.stat.clicksOverTime.add(Date())
+            // add current date to the current response stats
+            transaction {
+                ClickOverTimeTable.insert {
+                    it[clickDate] = LocalDateTime.now()
+                    it[response] = retrievedResponse.id
+                }
+            }
 
             log.debug("redirect to: $retrievedResponse")
             call.respondRedirect(retrievedResponse.originalURL)
@@ -111,11 +135,20 @@ fun Application.module(testing: Boolean = false) {
 
         get("/api/v1/url/{id}/stat") {
             val id = call.parameters["id"]
-            val retrievedResponse = id?.let {responseByID[it]}
+            val retrievedResponse = id?.let {getResponseById(it)}
 
             if (id.isNullOrBlank() || retrievedResponse == null) {
                 return@get call.respond(HttpStatusCode.NoContent)
             }
+
+            val dates: List<Date> = transaction {
+                ClickOverTimeTable.select { ClickOverTimeTable.response eq id}
+                // convert LocalDateTime to Date
+                    .map { Date.from(it[ClickOverTimeTable.clickDate].atZone(ZoneId.systemDefault()).toInstant())}
+            }
+
+            retrievedResponse.stat.clicksOverTime.addAll(dates)
+
             call.respond(retrievedResponse.stat)
         }
 
@@ -125,14 +158,14 @@ fun Application.module(testing: Boolean = false) {
 
             // find the Response object if it already exists
             val shortURL = getShortURL(request.url)
-            val retrievedResponse = responseByID[shortURL]
+            val retrievedResponse = getResponseById(shortURL)
             if (retrievedResponse != null) {
                 log.debug("cache hit $retrievedResponse")
                 return@post call.respond(retrievedResponse)
             }
 
             val response = request.toResponse()
-            responseByID[shortURL] = response
+            persistResponse(response)
             log.debug("cache miss $response")
 
             // Serialize Response object to JSON body
