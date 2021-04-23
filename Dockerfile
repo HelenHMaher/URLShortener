@@ -1,22 +1,13 @@
+FROM openjdk:8-jre-alpine
 
-FROM openjdk:8-jdk as builder
-ENV APP_HOME=/usr/app/
-WORKDIR $APP_HOME
+ENV APPLICATION_USER ktor
+RUN adduser -D -g '' $APPLICATION_USER
 
-COPY build.gradle.kts gradle.properties gradlew $APP_HOME
-COPY gradle $APP_HOME/gradle
+RUN mkdir /app
+RUN chown -R $APPLICATION_USER /app
 
-# downloads and caches dependencies in Docker image layer
-# so that they don't have to be downloaded each time
-RUN ./gradlew build || return 0
+USER $APPLICATION_USER
 
-COPY . .
-RUN ./gradlew shadowJar
-
-FROM azul/zulu-openjdk-alpine:8-jre
-
-COPY --from=builder /usr/app/build/libs/URLShortener-0.1.0-all.jar URLShortener.jar
-
-EXPOSE 8080
+WORKDIR /app
 
 CMD ["java", "-server", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:InitialRAMFraction=2", "-XX:MinRAMFraction=2", "-XX:MaxRAMFraction=2", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-XX:+UseStringDeduplication", "-jar", "ktor-url-shortener.jar"]
