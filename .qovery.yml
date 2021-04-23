@@ -1,12 +1,14 @@
 application:
-  name: "URLShortener"
+  name: URLShortener
+  project: URLShortener
+  publicly_accessible: true
 databases:
-- type: "POSTGRESQL"
-  name: "URLShortener-hm"
+- type: postgresql
   version: "11"
+  name: URLShortener
 routers:
-- name: "main-URLShortener"
+- name: main
   routes:
-  - application_name: "URLShortener"
+  - application_name: api
     paths:
-    - "/*"
+    - /*
