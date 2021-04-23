@@ -1,15 +1,21 @@
-FROM openjdk:8-jre-alpine
 
-ENV APPLICATION_USER ktor
-RUN adduser -D -g '' $APPLICATION_USER
+FROM openjdk:8-jdk as builder
+ENV APP_HOME=/usr/app/
+WORKDIR $APP_HOME
 
-RUN mkdir /app
-RUN chown -R $APPLICATION_USER /app
+COPY build.gradle.kts gradle.properties gradlew $APP_HOME
+COPY gradle $APP_HOME/gradle
 
-USER $APPLICATION_USER
+# downloads and caches dependencies in Docker image layer
+# so that they don't have to be downloaded each time
+RUN ./gradlew build || return 0
 
-COPY ./build/libs/URLShortener.jar /app/URLShortener.jar
-WORKDIR /app
+COPY . .
+RUN ./gradlew shadowJar
+
+FROM azul/zulu-openjdk-alpine:8-jre
+
+COPY --from=builder /usr/app/build/libs/URLShortener-0.1.0-all.jar URLShortener.jar
 
 EXPOSE 8080
 
