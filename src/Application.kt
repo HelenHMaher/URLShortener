@@ -37,7 +37,7 @@ data class Request(val url: String) {
 data class Stat(val clicksOverTime: MutableList<Date> = mutableListOf())
 
 data class Response(val originalURL: String, val id: String, val stat: Stat = Stat()) {
-    val shortURL: String = "http://localhost:8080/$id"
+    val shortURL: String = "${System.getenv("QOVERY_ROUTER_MAIN_URL")}$id"
 }
 
 object ResponseTable : Table("response") {
@@ -55,9 +55,9 @@ object ClickOverTimeTable : Table("click_over_time") {
 
 fun initDatabase() {
     val config = HikariConfig().apply {
-        jdbcUrl = "jdbc:${System.getenv("QOVERY_DATABASE_MY_PQL_DB_CONNECTION_URI_WITHOUT_CREDENTIALS")}"
-        username = System.getenv("QOVERY_DATABASE_MY_PQL_DB_USERNAME")
-        password = System.getenv("QOVERY_DATABASE_MY_PQL_DB_PASSWORD")
+        jdbcUrl = "jdbc:${System.getenv("QOVERY_DATABASE_URLSHORTENER_CONNECTION_URI_WITHOUT_CREDENTIALS")}"
+        username = System.getenv("QOVERY_DATABASE_URLSHORTENER_USERNAME")
+        password = System.getenv("QOVERY_DATABASE_URLSHORTENER_PASSWORD")
         driverClassName = "org.postgresql.Driver"
     }
 
